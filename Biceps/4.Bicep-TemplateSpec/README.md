@@ -6,7 +6,7 @@ az group create --name xyz-resources --location westeurope --tags Purpose=Demo P
 
 # Template Spec file (ts.json)
 ```
-az ts create --name storageSpec --version "1.0a" --resource-group xyz-resources --location "westeurope" --template-file ts.json
+az ts create --name storageSpec --version "1.0a" --resource-group xyz-resources --location "westeurope" --template-file ts.bicep
 ```
 
 ```
@@ -26,4 +26,4 @@ az deployment group create --resource-group xyz-resources --template-spec $id
 ```
 
 
-> You can also create TS as regular ARM resource, example ```ts-as-arm.json```
+> You can also create TS as regular Bicep resource, example ```ts-as-bicep.bicep```, but the template itself is in JSON
