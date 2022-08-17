@@ -33,3 +33,9 @@ az bicep decompile -f mainx.json
 ```
 az bicep generate-params --file {bicep_file}
 ```
+
+
+## Export (migration cases)
+```
+az group export --name demoGroup > exportedtemplate.json
+```
