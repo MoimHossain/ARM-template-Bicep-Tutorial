@@ -1,0 +1,76 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "storageAccountName": {
+            "type": "string",
+            "metadata": {
+              "description": "The storage account name that will store your VMs vhd disks."
+            }
+        },
+        "nicName":{
+            "type": "string",
+            "metadata": {
+                "description": "Name of the nic."
+            }
+        },
+        "privateStaticIpConfig":{
+            "type": "string",
+            "metadata": {
+                "description": "Name of the privateStaticIpConfig."
+            }
+        },
+        "existingSubnetId":{
+            "type": "string",
+            "metadata": {
+                "description": "Resource Id of the existing subnet."
+            }
+        },
+        "ipAddress":{
+            "type": "string",
+            "metadata": {
+                "description": "IP address to be set static."
+            }
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Network/networkInterfaces",
+            "name": "[parameters('nicName')]",
+            "apiVersion": "2017-10-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "[parameters('privateStaticIpConfig')]",
+                        "properties": {
+                            "privateIPAllocationMethod": "Static",
+                            "privateIPAddress": "[parameters('ipAddress')]",
+                            "subnet": {
+                                "id": "[parameters('existingSubnetId')]"
+                              }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts",
+            "name": "[parameters('storageAccountName')]",
+            "apiVersion": "2017-06-01",
+            "location": "[resourceGroup().location]",
+            "sku": {
+              "name": "Standard_LRS"
+            },
+            "kind": "Storage",
+           "properties": {}           
+        }
+    ],
+    "outputs": {
+        "existingStorageAccountId": {
+            "value": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
+            "type" : "string"    
+        }
+    }
+}

@@ -1,0 +1,190 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "storageAccountName": {
+            "type": "string",
+            "metadata": {
+              "description": "The storage account name that will store your VMs vhd disks."
+            }
+        },
+        "existingVirtualNetworkRG": {
+            "type": "string",
+            "metadata": {
+                "description": "Existing vnet RG."
+              }
+        },
+        "existingVirtualNetworkName": {
+            "type": "string",
+            "metadata": {
+                "description": "Existing vnet name."
+              }
+        },
+        "existingSubnetName": {
+            "type": "string",
+            "metadata": {
+                "description": "Existing subnet name."
+              }
+        },
+        "vmName": {
+          "type": "string",
+          "metadata": {
+              "description": "The name for you VM."
+            }
+        },
+        "vmSize": {
+          "type": "string",
+          "defaultValue": "Standard_A2",
+          "metadata": {
+              "description": "VM t-shirt size."
+          }
+        },
+        "windowsOSVersion": {
+          "type": "string",
+          "defaultValue": "2016-Datacenter",
+          "allowedValues": [
+            "2008-R2-SP1",
+            "2012-Datacenter",
+            "2012-R2-Datacenter",
+            "2016-Nano-Server",
+            "2016-Datacenter-with-Containers",
+            "2016-Datacenter"
+          ],
+          "metadata": {
+            "description": "The Windows version for the VM. This will pick a fully patched image of this given Windows version."
+          }
+        },
+        "adminUsername": {
+          "type": "string",
+          "metadata": {
+            "description": "Username for the Virtual Machine."
+          }
+        },
+        "adminPassword": {
+          "type": "securestring",
+          "metadata": {
+            "description": "Password for the Virtual Machine."
+          }
+        },
+        "numberOfDataDisks": {
+          "type": "int",
+          "defaultValue": 2,
+          "metadata": {
+            "description": "The number of data disks you want to attach to the VM"
+          }
+        }   
+    },
+    "variables": {
+        "privateStaticIpConfig": "ipconfig1",
+        "nicName": "demovmnic",
+        "existingVirtualNetworkId": "[resourceId(parameters('existingVirtualNetworkRG'), 'Microsoft.Network/virtualNetworks/', parameters('existingVirtualNetworkName'))]",
+        "existingSubnetId": "[concat(variables('existingVirtualNetworkId'),'/subnets/',parameters('existingSubnetName'))]",
+        
+        "nicId": "[resourceId('Microsoft.Network/networkInterfaces/', variables('nicName'))]",
+        "copy": [
+          {
+              "name": "dataDisks",
+              "count": "[if(equals(parameters('numberOfDataDisks'),0),1, parameters('numberOfDataDisks'))]",
+              "input": {
+                "lun": "[copyIndex('dataDisks')]",
+                "createOption": "Empty",
+                "diskSizeGB": "1023"
+              }
+          }
+      ]
+  
+    },
+    "resources": [
+        {
+          "apiVersion": "2017-03-01",
+          "type": "Microsoft.Network/networkInterfaces",
+          "name": "[variables('nicName')]",
+          "location": "[resourceGroup().location]",
+          "properties": {
+            "ipConfigurations": [
+              {
+                "name": "[variables('privateStaticIpConfig')]",
+                "properties": {
+                  "privateIPAllocationMethod": "Dynamic",
+                  "subnet": {
+                    "id": "[variables('existingSubnetId')]"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "apiVersion": "2017-03-30",
+          "type": "Microsoft.Compute/virtualMachines",
+          "name": "[parameters('vmName')]",
+          "location": "[resourceGroup().location]",
+          "dependsOn": [
+            "[variables('nicId')]"
+          ],
+          "properties": {
+            "hardwareProfile": {
+              "vmSize": "[parameters('vmSize')]"
+            },
+            "osProfile": {
+              "computerName": "[parameters('vmName')]",
+              "adminUsername": "[parameters('adminUsername')]",
+              "adminPassword": "[parameters('adminPassword')]"
+            },
+            "storageProfile": {
+              "imageReference": {
+                "publisher": "MicrosoftWindowsServer",
+                "offer": "WindowsServer",
+                "sku": "[parameters('windowsOSVersion')]",
+                "version": "latest"
+              },
+              "osDisk": {
+                "createOption": "FromImage"
+              },
+              "dataDisks": 
+                "[if(equals(parameters('numberOfDataDisks'),0),json('null'),variables('dataDisks'))]"    
+            },
+            "networkProfile": {
+              "networkInterfaces": [
+                {
+                  "id": "[variables('nicId')]"
+                }
+              ]
+            }
+          }
+        },
+        { 
+          "apiVersion": "2017-05-10",
+          "dependsOn": [
+            "[variables('nicId')]"
+          ], 
+          "name": "linkedTemplate", 
+          "type": "Microsoft.Resources/deployments", 
+          "properties": { 
+            "mode": "Incremental", 
+            "templateLink": {
+              "uri": "https://raw.githubusercontent.com/mariuszdotnet/azure-resource-manager-tutorial/master/linkedtemplate.json",
+              "contentVersion": "1.0.0.0"
+            }, 
+            "parameters": {
+              "storageAccountName":{"value": "[parameters('storageAccountName')]"},
+              "nicName": {"value": "[variables('nicName')]"},
+              "privateStaticIpConfig":{"value": "[variables('privateStaticIpConfig')]"},
+              "existingSubnetId": {"value": "[variables('existingSubnetId')]"},
+              "ipAddress": {"value": "[reference(variables('nicId')).ipConfigurations[0].properties.privateIPAddress]"}
+            }
+          } 
+      }    
+    ],
+    "outputs": {
+      "existingStorageAccountId": {
+        "type": "string",
+        "value": "[reference('linkedTemplate').outputs.existingStorageAccountId.value]"
+      },
+      "staticIp": {
+        "type": "string",
+        "value": "[reference(variables('nicId')).ipConfigurations[0].properties.privateIPAddress]"
+      }
+    }
+  
+}
